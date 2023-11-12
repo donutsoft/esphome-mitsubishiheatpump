@@ -1,3 +1,14 @@
+# FORK!
+
+This is my personal fork which I am currently running on an `MSZ-GE80VA`.
+
+It includes several patches which aren't on current master:
+
+* Packet Logger (set VERBOSE logging, this will tell you if you have your serial port settings right)
+* Fix crash on fan mode change (simple printf format problem)
+* Horizonal and Vertical vane select
+
+
 # esphome-mitsubishiheatpump
 
 Wirelessly control your Mitsubishi Comfort HVAC equipment with an ESP8266 or
