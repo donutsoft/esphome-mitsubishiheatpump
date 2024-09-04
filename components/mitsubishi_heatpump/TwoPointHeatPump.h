@@ -29,8 +29,8 @@ class TwoPointHeatPump : public HeatPump {
 public:
     TwoPointHeatPump(float temperature_low, float temperature_high) : 
         HeatPump(),
-        temperature_low_(temperature_low),
-        temperature_high_(temperature_high) {
+        temperature_low_(nearestHalf(temperature_low)),
+        temperature_high_(nearestHalf(temperature_high)) {
         setRoomTempChangedCallback([this](float current_temperature) {
                 this->room_temperature_update(current_temperature);
             });
@@ -52,15 +52,15 @@ public:
 
 private:
     boolean syncTemperatureSetpointsFromHeatPump();
-
+    float nearestHalf(float input);
     void room_temperature_update(float current_temperature);
     HeatpumpMode GetDesiredMode();
     HeatpumpMode GetCurrentMode();
 
-    float temperature_low_ = 0;
-    float temperature_high_ = 0;
+    float temperature_low_;
+    float temperature_high_;
 
-    boolean managed_mode = false;
+    boolean managed_mode_ = false;
     HeatpumpMode desired_mode_override_ = HeatpumpMode::UNKNOWN;
 
     boolean changes_pending_ = false;

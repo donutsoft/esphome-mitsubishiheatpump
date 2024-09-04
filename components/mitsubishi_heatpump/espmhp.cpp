@@ -67,7 +67,6 @@ void MitsubishiHeatPump::update() {
     // This will be called every "update_interval" milliseconds.
     //this->dump_config();
     this->hp->sync();
-
     this->hp->updateIfChangesPending();
 
 #ifndef USE_CALLBACKS
@@ -76,7 +75,6 @@ void MitsubishiHeatPump::update() {
     this->hpStatusChanged(currentStatus);
 #endif
     this->enforce_remote_temperature_sensor_timeout();
-    //zone_consistency_controller_.update();
 }
 
 void MitsubishiHeatPump::set_baud_rate(int baud) {
@@ -769,14 +767,14 @@ void MitsubishiHeatPump::setup() {
     heat_setpoint = load(heat_storage);
 
     ESP_LOGCONFIG(TAG, "Intializing new HeatPump object.");
-    this->target_temperature_low = heat_setpoint.value_or(NAN);
-    this->target_temperature_high = cool_setpoint.value_or(NAN);
-
-    this->hp = new TwoPointHeatPump(this->target_temperature_low, this->target_temperature_high);
+    this->hp = new TwoPointHeatPump(
+        heat_setpoint.value_or(0), cool_setpoint.value_or(0));
 
     this->zone_consistency_controller_.setHeatpumpController(this->hp);
     this->hp->enableExternalUpdate();
     this->current_temperature = NAN;
+    this->target_temperature_low = NAN;
+    this->target_temperature_high = NAN;
 
     this->fan_mode = climate::CLIMATE_FAN_OFF;
     this->swing_mode = climate::CLIMATE_SWING_OFF;
