@@ -22,7 +22,8 @@
 #include "esphome/core/preferences.h"
 #include <chrono>
 
-#include "HeatPump.h"
+#include "TwoPointHeatPump.h"
+#include "ZoneConsistencyController.h"
 
 #ifndef ESPMHP_H
 #define ESPMHP_H
@@ -120,9 +121,19 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
         // temperature sensor if a ping isn't received from the controller.
         void set_remote_ping_timeout_minutes(int);
 
+        // Set the temperature deltas for neighboring zones associated with this
+        // multisplit. temperature_delta is defined as target_temperature - current_temperature
+        void report_neighbor_temperature(
+            const std::string& device_name,
+            const std::string& state, 
+            float temperature_low,
+            float temperature_high,
+            float temperature_current);
+
     protected:
         // HeatPump object using the underlying Arduino library.
-        HeatPump* hp;
+        TwoPointHeatPump* hp;
+        ZoneConsistencyController zone_consistency_controller_;
 
         // The ClimateTraits supported by this HeatPump.
         esphome::climate::ClimateTraits traits_;
@@ -134,7 +145,7 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
         std::string horizontal_swing_state_;
 
         // Allow the HeatPump class to use get_hw_serial_
-        friend class HeatPump;
+        friend class TwoPointHeatPump;
 
         //Accessor method for the HardwareSerial pointer
         HardwareSerial* get_hw_serial_() {
@@ -147,13 +158,11 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
 
         // various prefs to save mode-specific temperatures, akin to how the IR
         // remote works.
-        esphome::ESPPreferenceObject cool_storage;
         esphome::ESPPreferenceObject heat_storage;
-        esphome::ESPPreferenceObject auto_storage;
+        esphome::ESPPreferenceObject cool_storage;
 
-        esphome::optional<float> cool_setpoint;
         esphome::optional<float> heat_setpoint;
-        esphome::optional<float> auto_setpoint;
+        esphome::optional<float> cool_setpoint;
 
         static void save(float value, esphome::ESPPreferenceObject& storage);
         static esphome::optional<float> load(esphome::ESPPreferenceObject& storage);
@@ -175,11 +184,12 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
         // Retrieve the HardwareSerial pointer from friend and subclasses.
         HardwareSerial *hw_serial_;
         int baud_ = 0;
-        bool operating_ = false;
         int rx_pin_ = -1;
         int tx_pin_ = -1;
         bool operating_ = false;
+        bool heat_cool_mode_ = false;
 
+        std::map<std::string, std::pair<std::chrono::time_point<std::chrono::steady_clock>, float>> remote_temperature_deltas_;
         esphome::optional<std::chrono::duration<long long, std::ratio<60>>> remote_operating_timeout_;
         esphome::optional<std::chrono::duration<long long, std::ratio<60>>> remote_idle_timeout_;
         esphome::optional<std::chrono::duration<long long, std::ratio<60>>> remote_ping_timeout_;

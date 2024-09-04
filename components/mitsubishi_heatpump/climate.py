@@ -13,6 +13,7 @@ from esphome.const import (
     CONF_MODE,
     CONF_FAN_MODE,
     CONF_SWING_MODE,
+    PLATFORM_ESP8266
 )
 from esphome.core import CORE, coroutine
 
@@ -34,11 +35,6 @@ HORIZONTAL_SWING_OPTIONS = [
     "right",
 ]
 VERTICAL_SWING_OPTIONS = ["swing", "auto", "up", "up_center", "center", "down_center", "down"]
-
-# Remote temperature timeout configuration
-CONF_REMOTE_OPERATING_TIMEOUT = "remote_temperature_operating_timeout_minutes"
-CONF_REMOTE_IDLE_TIMEOUT = "remote_temperature_idle_timeout_minutes"
-CONF_REMOTE_PING_TIMEOUT = "remote_temperature_ping_timeout_minutes"
 
 # Remote temperature timeout configuration
 CONF_REMOTE_OPERATING_TIMEOUT = "remote_temperature_operating_timeout_minutes"
@@ -81,12 +77,6 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
         cv.Optional(CONF_REMOTE_PING_TIMEOUT): cv.positive_int,
         cv.Optional(CONF_RX_PIN): cv.positive_int,
         cv.Optional(CONF_TX_PIN): cv.positive_int,
-
-        cv.Optional(CONF_REMOTE_OPERATING_TIMEOUT): cv.positive_int,
-        cv.Optional(CONF_REMOTE_IDLE_TIMEOUT): cv.positive_int,
-        cv.Optional(CONF_REMOTE_PING_TIMEOUT): cv.positive_int,
-        
-
         # If polling interval is greater than 9 seconds, the HeatPump library
         # reconnects, but doesn't then follow up with our data request.
         cv.Optional(CONF_UPDATE_INTERVAL, default="500ms"): cv.All(
@@ -112,7 +102,7 @@ CONFIG_SCHEMA = climate.CLIMATE_SCHEMA.extend(
 
 @coroutine
 def to_code(config):
-    serial = HARDWARE_UART_TO_SERIAL[config[CONF_HARDWARE_UART]]
+    serial = HARDWARE_UART_TO_SERIAL[PLATFORM_ESP8266][config[CONF_HARDWARE_UART]]
     var = cg.new_Pvariable(config[CONF_ID], cg.RawExpression(f"&{serial}"))
 
     if CONF_BAUD_RATE in config:
