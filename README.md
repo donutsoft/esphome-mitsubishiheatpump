@@ -3,6 +3,12 @@
 Wirelessly control your Mitsubishi Comfort HVAC equipment with an ESP8266 or
 ESP32 using the [ESPHome](https://esphome.io) framework.
 
+## What makes this branch unique
+This is my personal branch where I've implemented dual-point thermostat support, along with multizone heating/cooling negotiation. This ensures that different units connected to a multi-split system consistently coordinate to request heating or cooling as required. See section titled "Automatic multizone heating/cooling negotiation".
+
+![A screenshot showing a dual point thermostat in Home Assistant](dualpoint.png)
+
+
 ## Features
 * Instant feedback of command changes via RF Remote to HomeAssistant or MQTT.
 * Direct control without the remote.
@@ -487,6 +493,28 @@ There is an explicit distinction between an operating timeout and an idle timeou
 
 Do not enable ping timeout until you have the logic in place to call the ping service at a regular interval. You
 can view the ESPHome logs to ensure this is taking place.
+
+## Automatic multizone heating/cooling negotiation
+In a multizone minisplit system, all heads must be configured identically to either heating or cooling, or the system will not function. To address this, a heating/cooling negotiation service has been implemented, allowing heads to automatically select heating or cooling based on demand. Currently, only a single selection algorithm is supported—‘max delta.’ This algorithm prioritizes the zone with the greatest temperature difference from its setpoint. For example, if one room is 10 degrees hotter than its configured temperature and another is 5 degrees colder, cooling will be prioritized to the hotter room. The second room's head will remain off until the first room reaches its target temperature, after which heating will activate for the second room and the first rooms head turned off.
+
+Add the following service:
+```yaml
+    - service: report_neighbor_temperature
+      variables:
+        device_name: string
+        state: string
+        target_temperature_low: float
+        target_temperature_high: float
+        current_temperature: float
+      then:
+        - lambda: 'id(hp).report_neighbor_temperature(device_name, state, target_temperature_low, target_temperature_high, current_temperature);'
+```
+
+and in NodeRed create a flow as follows
+```json
+[{"id":"c599f8cf9b2a4f3d","type":"server-state-changed","z":"638d16648910bf5e","name":"","server":"9ce7758d.85ee18","version":5,"outputs":1,"exposeAsEntityConfig":"","entityId":"climate.basement_hvac_basement_hvac","entityIdType":"substring","outputInitially":true,"stateType":"str","ifState":"","ifStateType":"str","ifStateOperator":"is","outputOnlyOnStateChange":false,"for":"0","forType":"num","forUnits":"minutes","ignorePrevStateNull":false,"ignorePrevStateUnknown":false,"ignorePrevStateUnavailable":false,"ignoreCurrentStateUnknown":false,"ignoreCurrentStateUnavailable":false,"outputProperties":[{"property":"payload","propertyType":"msg","value":"","valueType":"entityState"},{"property":"data","propertyType":"msg","value":"","valueType":"eventData"},{"property":"topic","propertyType":"msg","value":"","valueType":"triggerId"}],"x":290,"y":760,"wires":[["55436a237b04eb99"]]},{"id":"2e2127e57b2a3f43","type":"server-state-changed","z":"638d16648910bf5e","name":"","server":"9ce7758d.85ee18","version":5,"outputs":1,"exposeAsEntityConfig":"","entityId":"climate.front_room_hvac_front_room_hvac","entityIdType":"substring","outputInitially":true,"stateType":"str","ifState":"","ifStateType":"str","ifStateOperator":"is","outputOnlyOnStateChange":false,"for":"0","forType":"num","forUnits":"minutes","ignorePrevStateNull":false,"ignorePrevStateUnknown":false,"ignorePrevStateUnavailable":false,"ignoreCurrentStateUnknown":false,"ignoreCurrentStateUnavailable":false,"outputProperties":[{"property":"payload","propertyType":"msg","value":"","valueType":"entityState"},{"property":"data","propertyType":"msg","value":"","valueType":"eventData"},{"property":"topic","propertyType":"msg","value":"","valueType":"triggerId"}],"x":310,"y":840,"wires":[["320e1b04a69fb67a"]]},{"id":"55436a237b04eb99","type":"api-current-state","z":"638d16648910bf5e","name":"Basement HVAC","server":"9ce7758d.85ee18","version":3,"outputs":1,"halt_if":"","halt_if_type":"str","halt_if_compare":"is","entity_id":"climate.basement_hvac_basement_hvac","state_type":"str","blockInputOverrides":false,"outputProperties":[{"property":"payload","propertyType":"msg","value":"","valueType":"entity"},{"property":"data","propertyType":"msg","value":"","valueType":"entity"}],"for":"0","forType":"num","forUnits":"minutes","override_topic":false,"state_location":"payload","override_payload":"msg","entity_location":"data","override_data":"msg","x":690,"y":740,"wires":[["2ab78e91530a5f60"]]},{"id":"320e1b04a69fb67a","type":"api-current-state","z":"638d16648910bf5e","name":"Front room HVAC","server":"9ce7758d.85ee18","version":3,"outputs":1,"halt_if":"","halt_if_type":"str","halt_if_compare":"is","entity_id":"climate.front_room_hvac_front_room_hvac","state_type":"str","blockInputOverrides":false,"outputProperties":[{"property":"payload","propertyType":"msg","value":"","valueType":"entity"},{"property":"data","propertyType":"msg","value":"","valueType":"entity"}],"for":"0","forType":"num","forUnits":"minutes","override_topic":false,"state_location":"payload","override_payload":"msg","entity_location":"data","override_data":"msg","x":690,"y":820,"wires":[["2ab78e91530a5f60"]]},{"id":"2ab78e91530a5f60","type":"change","z":"638d16648910bf5e","name":"","rules":[{"t":"set","p":"target_temperature_low","pt":"msg","to":"payload.attributes.target_temp_low","tot":"jsonata"},{"t":"set","p":"target_temperature_high","pt":"msg","to":"payload.attributes.target_temp_high","tot":"jsonata"},{"t":"set","p":"current_temperature","pt":"msg","to":"payload.attributes.current_temperature","tot":"jsonata"},{"t":"set","p":"entity_id","pt":"msg","to":"payload.entity_id","tot":"jsonata"},{"t":"set","p":"state","pt":"msg","to":"payload.state","tot":"jsonata"}],"action":"","property":"","from":"","to":"","reg":false,"x":920,"y":740,"wires":[["bf4a31d9d50e293f","d7088521a13dad4a","e0b1a530c0167e42"]]},{"id":"d7088521a13dad4a","type":"api-call-service","z":"638d16648910bf5e","name":"","server":"9ce7758d.85ee18","version":5,"debugenabled":false,"domain":"esphome","service":"front_room_hvac_report_neighbor_temperature","areaId":[],"deviceId":[],"entityId":[],"data":"{     \"device_name\":\"{{entity_id}}\",     \"state\": \"{{state}}\",    \"target_temperature_low\":{{target_temperature_low}},    \"target_temperature_high\": {{target_temperature_high}},    \"current_temperature\": {{current_temperature}}}","dataType":"json","mergeContext":"","mustacheAltTags":false,"outputProperties":[],"queue":"none","x":1330,"y":780,"wires":[[]]},{"id":"bf4a31d9d50e293f","type":"api-call-service","z":"638d16648910bf5e","name":"","server":"9ce7758d.85ee18","version":5,"debugenabled":false,"domain":"esphome","service":"basement_hvac_report_neighbor_temperature","areaId":[],"deviceId":[],"entityId":[],"data":"{     \"device_name\":\"{{entity_id}}\",     \"state\": \"{{state}}\",    \"target_temperature_low\":{{target_temperature_low}},    \"target_temperature_high\": {{target_temperature_high}},    \"current_temperature\": {{current_temperature}}}","dataType":"json","mergeContext":"","mustacheAltTags":false,"outputProperties":[],"queue":"none","x":1330,"y":720,"wires":[[]]},{"id":"9ce7758d.85ee18","type":"server","name":"Home Assistant","addon":true}]
+```
+Note that you need to rename the nodes to your own entities, and create the flows as a star pattern where every updated node will call report_neighbor_temperature on every other node connected to the same multisplit.
 
 # See Also
 
