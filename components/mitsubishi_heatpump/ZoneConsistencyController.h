@@ -50,7 +50,8 @@ public:
 private:
     std::map<std::string, RemoteTemperatureData*> remote_temperature_data_;
     TwoPointHeatPump* hp_ = nullptr;
-
+    HeatpumpMode previous_mode_ = HeatpumpMode::UNKNOWN;
+    
     int calculateDelta(RemoteTemperatureData* remoteTemperatureData);
 };
 

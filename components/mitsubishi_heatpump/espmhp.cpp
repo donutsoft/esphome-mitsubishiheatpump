@@ -257,6 +257,8 @@ void MitsubishiHeatPump::control(const climate::ClimateCall &call) {
             std::chrono::steady_clock::now();
     }
 
+    managed_mode = false;
+
     switch (this->mode) {
         case climate::CLIMATE_MODE_COOL:
             hp->setModeSetting("COOL");
@@ -298,6 +300,7 @@ void MitsubishiHeatPump::control(const climate::ClimateCall &call) {
         case climate::CLIMATE_MODE_HEAT_COOL:
             hp->setModeSetting("DUAL_POINT");
             hp->setPowerSetting("ON");
+            managed_mode = true;
             if (has_mode){
                 if (heat_setpoint.has_value() &&
                     !has_temp_low &&
@@ -365,6 +368,8 @@ void MitsubishiHeatPump::control(const climate::ClimateCall &call) {
 
         updated = true;
     }
+
+    save(managed_mode, managed_mode_storage);
 
     //const char* FAN_MAP[6]         = {"AUTO", "QUIET", "1", "2", "3", "4"};
     if (call.get_fan_mode().has_value()) {
@@ -761,14 +766,18 @@ void MitsubishiHeatPump::setup() {
     // create various setpoint persistence:
     cool_storage = global_preferences->make_preference<uint8_t>(this->get_object_id_hash() + 1);
     heat_storage = global_preferences->make_preference<uint8_t>(this->get_object_id_hash() + 2);
+    managed_mode_storage = global_preferences->make_preference<bool>(this->get_object_id_hash() + 3);
 
     // load values from storage:
     cool_setpoint = load(cool_storage);
     heat_setpoint = load(heat_storage);
+    managed_mode = loadBool(managed_mode_storage);
 
     ESP_LOGCONFIG(TAG, "Intializing new HeatPump object.");
     this->hp = new TwoPointHeatPump(
-        heat_setpoint.value_or(0), cool_setpoint.value_or(0));
+        heat_setpoint.value_or(0),
+        cool_setpoint.value_or(0),
+        managed_mode.value_or(false));
 
     this->zone_consistency_controller_.setHeatpumpController(this->hp);
     this->hp->enableExternalUpdate();
@@ -831,12 +840,24 @@ void MitsubishiHeatPump::save(float value, ESPPreferenceObject& storage) {
     storage.save(&steps);
 }
 
+void MitsubishiHeatPump::save(bool value, ESPPreferenceObject& storage) {
+    storage.save(&value);
+}
+
 optional<float> MitsubishiHeatPump::load(ESPPreferenceObject& storage) {
     uint8_t steps = 0;
     if (!storage.load(&steps)) {
         return {};
     }
     return ESPMHP_MIN_TEMPERATURE + (steps * ESPMHP_TEMPERATURE_STEP);
+}
+
+optional<bool> MitsubishiHeatPump::loadBool(ESPPreferenceObject& storage) {
+    bool result = false;
+    if (!storage.load(&result)) {
+        return {};
+    }
+    return result;
 }
 
 void MitsubishiHeatPump::dump_config() {

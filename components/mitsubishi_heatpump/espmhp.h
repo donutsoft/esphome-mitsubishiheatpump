@@ -160,12 +160,17 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
         // remote works.
         esphome::ESPPreferenceObject heat_storage;
         esphome::ESPPreferenceObject cool_storage;
+        esphome::ESPPreferenceObject managed_mode_storage;
 
         esphome::optional<float> heat_setpoint;
         esphome::optional<float> cool_setpoint;
+        esphome::optional<bool> managed_mode;
 
         static void save(float value, esphome::ESPPreferenceObject& storage);
         static esphome::optional<float> load(esphome::ESPPreferenceObject& storage);
+
+        static void save(bool value, esphome::ESPPreferenceObject& storage);
+        static esphome::optional<bool> loadBool(esphome::ESPPreferenceObject& storage);
 
         esphome::select::Select *vertical_vane_select_ =
             nullptr;  // Select to store manual position of vertical swing

@@ -91,30 +91,12 @@ void ZoneConsistencyController::assignDominantSetting() {
             mode = HeatpumpMode::OFF;
         }
     } else {
-        // Find the average temperature distance and set the heat setting
-        // to that.
-        int totalLowTemperatures = 0;
-        int totalHighTemperatures = 0;
-        int totalCurrentTemperatures = 0;
-
-        for (auto const& kvp : remote_temperature_data_) {
-            totalLowTemperatures += kvp.second->temperature_low_;
-            totalHighTemperatures += kvp.second->temperature_high_;
-            totalCurrentTemperatures += kvp.second->temperature_current_;
-        }
-
-        int distanceFromHeatPoint = abs(totalLowTemperatures - totalCurrentTemperatures);
-        int distanceFromCoolPoint = abs(totalHighTemperatures - totalCurrentTemperatures);
-
-        if (distanceFromHeatPoint < distanceFromCoolPoint) {
-            mode = HeatpumpMode::HEAT;
-        } else {
-            mode = HeatpumpMode::COOL;
-        }
-
-
+        // Stick to whatever mode we had previously, it's likely to be used again
+        // once a heatpump falls further away from its setpoint.
+        mode = previous_mode_;
     }
 
+    previous_mode_ = mode;
     this->hp_->setDesiredModeOverride(mode);
 }
 
