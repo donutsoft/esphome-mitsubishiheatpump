@@ -8,7 +8,6 @@
  *
  */
 
-
 #include "ZoneConsistencyController.h"
 #include "esphome.h"
 
@@ -25,32 +24,31 @@ void ZoneConsistencyController::zoneUpdate(
     float temperature_low,
     float temperature_high,
     float current_temperature) {
-    float delta = 0;
-    if (current_temperature < temperature_low) {
-        delta = current_temperature - temperature_low;
-    } else if (current_temperature > temperature_high) {
-        delta = current_temperature - temperature_high;
-    } else {
-        delta = 0;
+    if (remote_temperature_data_.count(device_name) > 0) {
+        delete remote_temperature_data_[device_name];
     }
 
-    ESP_LOGD(
-            "ZoneConsistencyController", "Found zone update for %s. state=%s delta=%.2f",
-            device_name.c_str(),
-            state.c_str(),
-            delta);
-
-
     if (state == "heat_cool") {
-        remote_temperature_deltas_[device_name] = 
-            std::pair<std::chrono::time_point<std::chrono::steady_clock>, float>(
-                std::chrono::steady_clock::now(),
-                delta);
+        remote_temperature_data_[device_name] = new RemoteTemperatureData(
+            temperature_low,
+            temperature_high,
+            current_temperature);
     } else {
-        remote_temperature_deltas_.erase(device_name);
+        remote_temperature_data_.erase(device_name);
     }
 
     assignDominantSetting();
+}
+
+int ZoneConsistencyController::calculateDelta(RemoteTemperatureData* remoteTemperatureData) {
+    float delta = 0;
+    if (remoteTemperatureData->temperature_current_ < remoteTemperatureData->temperature_low_) {
+        delta = remoteTemperatureData->temperature_current_ - remoteTemperatureData->temperature_low_;
+    } else if (remoteTemperatureData->temperature_current_ > remoteTemperatureData->temperature_high_) {
+        delta = remoteTemperatureData->temperature_current_ - remoteTemperatureData->temperature_high_;
+    }
+
+    return delta;
 }
 
 void ZoneConsistencyController::assignDominantSetting() {
@@ -70,10 +68,9 @@ void ZoneConsistencyController::assignDominantSetting() {
     HeatpumpMode mode = HeatpumpMode::UNKNOWN;
 
 
-    for (auto const& kvp : remote_temperature_deltas_) {
-        auto value = kvp.second;
-        if (abs(value.second) > abs(maxDelta)) {
-            maxDelta = value.second;
+    for (auto const& kvp : remote_temperature_data_) {
+        if (abs(calculateDelta(kvp.second)) > abs(maxDelta)) {
+            maxDelta = calculateDelta(kvp.second);
         }
     }
 
@@ -94,8 +91,28 @@ void ZoneConsistencyController::assignDominantSetting() {
             mode = HeatpumpMode::OFF;
         }
     } else {
-        ESP_LOGD("ZoneConsistencyController", "Max Delta=%f, assigning to local control.", maxDelta);
-        mode = HeatpumpMode::UNKNOWN;
+        // Find the average temperature distance and set the heat setting
+        // to that.
+        int totalLowTemperatures = 0;
+        int totalHighTemperatures = 0;
+        int totalCurrentTemperatures = 0;
+
+        for (auto const& kvp : remote_temperature_data_) {
+            totalLowTemperatures += kvp.second->temperature_low_;
+            totalHighTemperatures += kvp.second->temperature_high_;
+            totalCurrentTemperatures += kvp.second->temperature_current_;
+        }
+
+        int distanceFromHeatPoint = abs(totalLowTemperatures - totalCurrentTemperatures);
+        int distanceFromCoolPoint = abs(totalHighTemperatures - totalCurrentTemperatures);
+
+        if (distanceFromHeatPoint < distanceFromCoolPoint) {
+            mode = HeatpumpMode::HEAT;
+        } else {
+            mode = HeatpumpMode::COOL;
+        }
+
+
     }
 
     this->hp_->setDesiredModeOverride(mode);
