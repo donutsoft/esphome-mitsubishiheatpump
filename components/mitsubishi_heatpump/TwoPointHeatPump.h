@@ -8,10 +8,13 @@
  *
  */
 
+#include <string>
+
 #ifndef TWOPOINTHEATPUMP_H
 #define TWOPOINTHEATPUMP_H
 
 #include "HeatPump.h"
+
 
 struct twoPointHeatPumpSettings : heatpumpSettings {
     float temperature_low;
@@ -70,6 +73,10 @@ private:
     boolean changes_pending_ = false;
     HeatpumpMode desired_mode_override_ = HeatpumpMode::UNKNOWN;
     boolean managed_mode_ = false;
+
+    float previous_temperature_ = 0.0;
+    std::string previous_mode_;
+
     float temperature_low_;
     float temperature_high_;
 };

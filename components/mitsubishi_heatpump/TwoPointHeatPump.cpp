@@ -41,6 +41,9 @@ boolean TwoPointHeatPump::readTemperatureSetpointsFromHeatPump() {
         return updated;
     }
 
+    ESP_LOGD("TwoPointHeatPump", "Actual temperature setpoint for %s %.2f (%.2f)", settings.mode, settings.temperature, ((settings.temperature * 1.8)+32));
+    
+
     if (strcmp(settings.power, "ON") == 0) {
         if (strcmp(settings.mode, "HEAT") == 0 && 
             settings.temperature != temperature_high_ &&
@@ -214,19 +217,17 @@ String heatpumpModeToString(HeatpumpMode mode) {
 }
 
 void TwoPointHeatPump::setTemperatureLow(float setting) {
-    ESP_LOGD("TwoPointHeatPump", "setTemperatureLow: %.2f rounded to: %.2f", setting, nearestHalf(setting));
     temperature_low_ = nearestHalf(setting);
     if (GetCurrentMode() == HeatpumpMode::HEAT) {
-        ESP_LOGD("TwoPointHeatPump", "setTempLow: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), setting, getRoomTemperature());
+        ESP_LOGD("TwoPointHeatPump", "setTempLow: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), nearestHalf(setting), getRoomTemperature());
         setTemperature(temperature_low_);
     }
 }
 
 void TwoPointHeatPump::setTemperatureHigh(float setting) {
-    ESP_LOGD("TwoPointHeatPump", "setTemperatureHigh: %.2f rounded to: %.2f", setting, nearestHalf(setting));
     temperature_high_ = nearestHalf(setting);
     if (GetCurrentMode() == HeatpumpMode::COOL) {
-        ESP_LOGD("TwoPointHeatPump", "setTempHigh: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), setting, getRoomTemperature());
+        ESP_LOGD("TwoPointHeatPump", "setTempHigh: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), nearestHalf(setting), getRoomTemperature());
         setTemperature(temperature_high_);
     }
 }
@@ -236,7 +237,7 @@ boolean TwoPointHeatPump::ensureDesiredModeConfigured() {
         HeatpumpMode currentMode = GetCurrentMode();
         HeatpumpMode desiredMode = GetDesiredMode();
         if (currentMode != desiredMode) {
-            ESP_LOGD("TwoPointHeatPump", "room_temperature_update():: Current mode is not desired mode, attempting update from %s to %s", 
+            ESP_LOGD("TwoPointHeatPump", "Current mode is not desired mode, attempting update from %s to %s", 
                 heatpumpModeToString(currentMode), heatpumpModeToString(desiredMode));
             setModeSetting("DUAL_POINT");
             update();
