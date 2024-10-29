@@ -14,7 +14,7 @@
 #define TWOPOINTHEATPUMP_H
 
 #include "HeatPump.h"
-
+#include "EnergySaverHeatPump.h"
 
 struct twoPointHeatPumpSettings : heatpumpSettings {
     float temperature_low;
@@ -28,14 +28,13 @@ enum HeatpumpMode {
     HEAT
 };
 
-class TwoPointHeatPump : public HeatPump {
+class TwoPointHeatPump : public EnergySaverHeatPump {
 public:
     TwoPointHeatPump(float temperature_low, float temperature_high, bool managed_mode) : 
-        HeatPump(),
+        EnergySaverHeatPump(),
         managed_mode_(managed_mode),
         temperature_low_(nearestHalf(temperature_low)),
         temperature_high_(nearestHalf(temperature_high)) {};
-
     twoPointHeatPumpSettings getSettings();
     void setTemperatureLow(float setting);
     void setTemperatureHigh(float setting);
@@ -70,7 +69,6 @@ private:
     // Returns the currently configured mode on the heat pump.
     HeatpumpMode GetCurrentMode();
 
-    boolean changes_pending_ = false;
     HeatpumpMode desired_mode_override_ = HeatpumpMode::UNKNOWN;
     boolean managed_mode_ = false;
 
@@ -79,6 +77,8 @@ private:
 
     float temperature_low_;
     float temperature_high_;
+
+    float last_temperature_setpoint_ = 0.0;
 };
 
 #endif

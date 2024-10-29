@@ -15,7 +15,7 @@
 using esphome::esp_log_printf_;
 
 twoPointHeatPumpSettings TwoPointHeatPump::getSettings() {
-    heatpumpSettings settings = HeatPump::getSettings();
+    heatpumpSettings settings = EnergySaverHeatPump::getSettings();
 
     twoPointHeatPumpSettings result;
     result.power = managed_mode_ ? "ON" : settings.power;
@@ -35,14 +35,16 @@ twoPointHeatPumpSettings TwoPointHeatPump::getSettings() {
 
 boolean TwoPointHeatPump::readTemperatureSetpointsFromHeatPump() { 
     boolean updated = false;
-    heatpumpSettings settings = HeatPump::getSettings();
+    heatpumpSettings settings = EnergySaverHeatPump::getSettings();
     if (settings.power == NULL) {
         // Heatpump not fully initialized yet.
         return updated;
     }
 
-    ESP_LOGD("TwoPointHeatPump", "Actual temperature setpoint for %s %.2f (%.2f)", settings.mode, settings.temperature, ((settings.temperature * 1.8)+32));
-    
+    if (settings.temperature != last_temperature_setpoint_) {
+        ESP_LOGD("TwoPointHeatPump", "Actual temperature setpoint for %s %.2f (%.2f)", settings.mode, settings.temperature, ((settings.temperature * 1.8)+32));
+        last_temperature_setpoint_ = settings.temperature;
+    }
 
     if (strcmp(settings.power, "ON") == 0) {
         if (strcmp(settings.mode, "HEAT") == 0 && 
@@ -115,13 +117,13 @@ void TwoPointHeatPump::update() {
 void TwoPointHeatPump::updateIfChangesPending() {
     if (changes_pending_) {
         changes_pending_ = false;
-        HeatPump::update();
+        EnergySaverHeatPump::update();
     }
 }
 
 void TwoPointHeatPump::sync() {
     if (!changes_pending_) {
-        HeatPump::sync();
+        EnergySaverHeatPump::sync();
 
         if (!ensureDesiredModeConfigured()) {
             return;
@@ -135,7 +137,7 @@ void TwoPointHeatPump::sync() {
 }
 
 HeatpumpMode TwoPointHeatPump::GetCurrentMode() {
-    heatpumpSettings settings = HeatPump::getSettings();
+    heatpumpSettings settings = EnergySaverHeatPump::getSettings();
     if (settings.power == NULL) {
         // Heatpump not fully initialized yet.
         return HeatpumpMode::UNKNOWN;
@@ -158,17 +160,17 @@ void TwoPointHeatPump::setPowerSetting(const char* setting) {
         managed_mode_ = false;
     }
 
-    HeatPump::setPowerSetting(setting);
+    EnergySaverHeatPump::setPowerSetting(setting);
 }
 
 void TwoPointHeatPump::setModeSetting(const char* setting) {
     ESP_LOGD("TwoPointHeatPump", "SetModeSetting: %s", setting);
     // TODO: Add override for two point here.
+    float temperature = 0;
     if (strcmp(setting, "DUAL_POINT") == 0) {
         managed_mode_ = true;
 
         HeatpumpMode desiredMode = GetDesiredMode();
-        float temperature = 0;
         std::string powerSetting = "ON";
         if (desiredMode == HeatpumpMode::HEAT) {
             ESP_LOGD("TwoPointHeatPump", "Modifying setting to HEAT mode");
@@ -186,19 +188,25 @@ void TwoPointHeatPump::setModeSetting(const char* setting) {
             ESP_LOGD("TwoPointHeatPump", "Dont know what to modify setting to, returning");
             return;
         }
-        
-        if (temperature > 0) {
-            setTemperature(temperature);
-        }
-        HeatPump::setPowerSetting(powerSetting.c_str());
+
+        EnergySaverHeatPump::setPowerSetting(powerSetting.c_str());
 
         if (strcmp(setting, "DUAL_POINT") != 0) {
-            HeatPump::setModeSetting(setting);
+            EnergySaverHeatPump::setModeSetting(setting);
         }
     } else {
         managed_mode_ = false;
+        if (strcmp(setting, "HEAT") == 0) {
+            temperature = temperature_low_;
+        } else if (strcmp(setting, "COOL") == 0 || strcmp(setting, "DRY") == 0) {
+            temperature = temperature_high_;
+        }
+        
+        EnergySaverHeatPump::setModeSetting(setting);
+    }
 
-        HeatPump::setModeSetting(setting);
+    if (temperature > 0) {
+        setTemperature(temperature);
     }
 }
 
@@ -220,7 +228,7 @@ void TwoPointHeatPump::setTemperatureLow(float setting) {
     temperature_low_ = nearestHalf(setting);
     if (GetCurrentMode() == HeatpumpMode::HEAT) {
         ESP_LOGD("TwoPointHeatPump", "setTempLow: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), nearestHalf(setting), getRoomTemperature());
-        setTemperature(temperature_low_);
+        EnergySaverHeatPump::setTemperature(temperature_low_);
     }
 }
 
@@ -228,7 +236,7 @@ void TwoPointHeatPump::setTemperatureHigh(float setting) {
     temperature_high_ = nearestHalf(setting);
     if (GetCurrentMode() == HeatpumpMode::COOL) {
         ESP_LOGD("TwoPointHeatPump", "setTempHigh: GetCurrentMode is current mode %s, forwarding to heatpump: %.2f (room temp %.2f)", heatpumpModeToString(GetCurrentMode()), nearestHalf(setting), getRoomTemperature());
-        setTemperature(temperature_high_);
+        EnergySaverHeatPump::setTemperature(temperature_high_);
     }
 }
 

@@ -121,6 +121,10 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
         // temperature sensor if a ping isn't received from the controller.
         void set_remote_ping_timeout_minutes(int);
 
+        void set_energy_saving_mode(bool);
+
+        bool get_energy_saving_mode();
+
         // Set the temperature deltas for neighboring zones associated with this
         // multisplit. temperature_delta is defined as target_temperature - current_temperature
         void report_neighbor_temperature(
@@ -132,7 +136,7 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
 
     protected:
         // HeatPump object using the underlying Arduino library.
-        TwoPointHeatPump* hp;
+        TwoPointHeatPump* hp = NULL;
         ZoneConsistencyController zone_consistency_controller_;
 
         // The ClimateTraits supported by this HeatPump.
@@ -164,7 +168,8 @@ class MitsubishiHeatPump : public esphome::PollingComponent, public esphome::cli
 
         esphome::optional<float> heat_setpoint;
         esphome::optional<float> cool_setpoint;
-        esphome::optional<bool> managed_mode;
+        esphome::optional<bool> managed_mode_;
+        bool managed_mode_at_boot_ = false;
 
         static void save(float value, esphome::ESPPreferenceObject& storage);
         static esphome::optional<float> load(esphome::ESPPreferenceObject& storage);
